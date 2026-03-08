@@ -18,8 +18,11 @@ fi
 API_KEY=$(jq -r '.api_key // empty' "$CONFIG_FILE")
 KUTT_HOST=$(jq -r '.kutt_host // empty' "$CONFIG_FILE")
 
-# Read ignore list into an array using jq
-mapfile -t IGNORE_LIST < <(jq -r '.ignore_list[]? // empty' "$CONFIG_FILE")
+# Read ignore list into an array using jq (Bash 3.2 compatible for macOS)
+IGNORE_LIST=()
+while IFS= read -r line; do
+    [[ -n "$line" ]] && IGNORE_LIST+=("$line")
+done < <(jq -r '.ignore_list[]? // empty' "$CONFIG_FILE")
 
 if [[ -z "$API_KEY" || "$API_KEY" == "your_kutt_api_key_here" ]]; then
     echo "Error: Please set a valid api_key in config.json"

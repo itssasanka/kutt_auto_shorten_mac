@@ -44,13 +44,16 @@ Open `~/.config/kutt_auto_shorten_mac/config.json` and update it with your actua
 ```
 
 ### Ignore List
-The `ignore_list` allows you to specify keywords for URLs that should NOT be shortened. If any copied URL contains a string from this list, it will be skipped automatically.
+The `ignore_list` allows you to specify keywords or exact URLs that should NOT be shortened. If any copied URL contains a string from this list (or matches exactly for full URLs), it will be skipped automatically.
 
-```
-"ignore_list": [
-    "example",  <-- https://example.com will be ignored
-    "mydomain.com",  <-- https://mydomain.com will be ignored
-    "https://exact-url.com/exact/path"  <-- Only https://exact-url.com/exact/path will be ignored
+- If the pattern is just a word or domain (e.g., `"example"`, `"mydomain.com"`), any URL containing that substring will be ignored.
+- If the pattern starts with `http://` or `https://`, it requires an **exact match** to be ignored.
+
+```json
+  "ignore_list": [
+    "example",                             // Substring: https://site.com/example will be ignored
+    "mydomain.com",                        // Substring: https://mydomain.com/path will be ignored
+    "https://exact-url.com/exact/path"     // Exact Match: Only this exact URL will be ignored
   ]
 ```
 
