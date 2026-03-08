@@ -1,14 +1,43 @@
 #!/bin/bash
 
 # Configuration
-API_KEY="McUIwQBBMosmiBcDP672F7n7hJJiRUOGU_XjADah"
-KUTT_HOST="https://t.sasanka.cloud"
+CONFIG_DIR="$HOME/.config/kutt_auto_shorten_mac"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+EXAMPLE_CONFIG="$(dirname "$0")/config.example.json"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    echo "Creating default configuration at $CONFIG_FILE..."
+    mkdir -p "$CONFIG_DIR"
+    cp "$EXAMPLE_CONFIG" "$CONFIG_FILE"
+    echo "Please update $CONFIG_FILE with your Kutt API details and restart."
+    osascript -e "display notification \"Please update $CONFIG_FILE\" with title \"Kutt Shortener Setup\""
+    exit 1
+fi
+
+# Parse configuration using jq
+API_KEY=$(jq -r '.api_key // empty' "$CONFIG_FILE")
+KUTT_HOST=$(jq -r '.kutt_host // empty' "$CONFIG_FILE")
+
+# Read ignore list into an array using jq
+mapfile -t IGNORE_LIST < <(jq -r '.ignore_list[]? // empty' "$CONFIG_FILE")
+
+if [[ -z "$API_KEY" || "$API_KEY" == "your_kutt_api_key_here" ]]; then
+    echo "Error: Please set a valid api_key in config.json"
+    exit 1
+fi
+
+if [[ -z "$KUTT_HOST" || "$KUTT_HOST" == "https://your-kutt-instance.com" ]]; then
+    echo "Error: Please set a valid kutt_host in config.json"
+    exit 1
+fi
+
+# Extract domain for duplicate checking
+KUTT_DOMAIN=$(echo "$KUTT_HOST" | awk -F/ '{print $3}')
 API_ENDPOINT="$KUTT_HOST/api/v2/links"
 
 # Function to shorten URL
 shorten_url() {
     local LONG_URL="$1"
-    local NOTIFY="$2" # Whether to notify on error/skip
 
     # Basic validation: Check if empty
     if [[ -z "$LONG_URL" ]]; then
@@ -21,12 +50,22 @@ shorten_url() {
     fi
 
     # Check if already shortened (contains the Kutt host)
-    if [[ "$LONG_URL" == *"t.sasanka.cloud"* ]]; then
-        if [[ "$NOTIFY" == "true" ]]; then
-            echo "URL is already shortened."
-        fi
+    if [[ "$LONG_URL" == *"$KUTT_DOMAIN"* ]]; then
         return 0
     fi
+
+    # Check against ignore list
+    for ignore_pattern in "${IGNORE_LIST[@]}"; do
+        # Skip empty patterns
+        if [[ -z "$ignore_pattern" ]]; then
+            continue
+        fi
+        
+        if [[ "$LONG_URL" == *"$ignore_pattern"* ]]; then
+            echo "Skipping ignored URL: $LONG_URL"
+            return 0
+        fi
+    done
 
     echo "Shortening: $LONG_URL"
 
@@ -40,15 +79,11 @@ shorten_url() {
     # Check for curl errors
     if [[ $? -ne 0 ]]; then
         echo "Error: Failed to connect to Kutt API."
-        if [[ "$NOTIFY" == "true" ]]; then
-            osascript -e 'display notification "Connection failed" with title "Kutt Shortener"'
-        fi
         return 1
     fi
 
     # Parse response
     SHORT_URL=$(echo "$RESPONSE" | jq -r '.link')
-    ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error // empty')
 
     if [[ "$SHORT_URL" != "null" && -n "$SHORT_URL" ]]; then
         # Success
@@ -59,39 +94,28 @@ shorten_url() {
     else
         # API Error
         echo "Error: API returned an error: $RESPONSE"
-        if [[ -n "$ERROR_MSG" ]]; then
-             if [[ "$NOTIFY" == "true" ]]; then
-                osascript -e "display notification \"Error: $ERROR_MSG\" with title \"Kutt Shortener\""
-             fi
-        fi
         return 1
     fi
 }
 
 # Main logic
-if [[ "$1" == "--once" ]]; then
-    # One-off run
-    LONG_URL=$(pbpaste)
-    shorten_url "$LONG_URL" "true"
-else
-    echo "Watching clipboard for new URLs..."
-    echo "Press Ctrl+C to stop."
+echo "Watching clipboard for new URLs..."
+echo "Press Ctrl+C to stop."
+
+LAST_CLIP=$(pbpaste)
+
+while true; do
+    sleep 1
+    CURRENT_CLIP=$(pbpaste)
     
-    LAST_CLIP=$(pbpaste)
-    
-    while true; do
-        sleep 1
-        CURRENT_CLIP=$(pbpaste)
+    # Check if clipboard content has changed
+    if [[ "$CURRENT_CLIP" != "$LAST_CLIP" ]]; then
         
-        # Check if clipboard content has changed
-        if [[ "$CURRENT_CLIP" != "$LAST_CLIP" ]]; then
-            
-            # Try to shorten
-            shorten_url "$CURRENT_CLIP" "false"
-            
-            # Update LAST_CLIP to reflect current clipboard state
-            # We must re-read pbpaste because shorten_url might have updated it
-            LAST_CLIP=$(pbpaste)
-        fi
-    done
-fi
+        # Try to shorten
+        shorten_url "$CURRENT_CLIP"
+        
+        # Update LAST_CLIP to reflect current clipboard state
+        # We must re-read pbpaste because shorten_url might have updated it
+        LAST_CLIP=$(pbpaste)
+    fi
+done

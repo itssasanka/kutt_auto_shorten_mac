@@ -1,0 +1,9 @@
+{
+  "api_key": "your_kutt_api_key_here",
+  "kutt_host": "https://your-kutt-instance.com",
+  "ignore_list": [
+    "example",
+    "mydomain.com",
+    "https://exact-url.com/exact/path"
+  ]
+}
