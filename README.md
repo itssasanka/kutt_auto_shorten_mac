@@ -22,6 +22,13 @@ You can install `jq` via Homebrew:
 brew install jq
 ```
 
+
+## Privacy
+- The logs are all local, they never leave your device.
+- Your clipboard/URLs are never sent to any external service.
+  - You are free to check the code and verify it yourself.
+- The Kutt instance you point it to is the only one that sees your URLs.
+
 ## Configuration
 
 Before using the script, you need to configure it with your Kutt API details. 
@@ -58,21 +65,23 @@ The `ignore_list` allows you to specify keywords or exact URLs that should NOT b
 ```
 
 ## Usage
+```bash
+git clone https://github.com/itssasanka/kutt_auto_shorten_mac
+```
 
 To start monitoring your clipboard for URLs to shorten:
 
 ```bash
+cd kutt_auto_shorten_mac
+chmod +x url_shortener.sh
 ./url_shortener.sh
 ```
 Leave this running in a terminal window. Whenever you copy a valid URL (starting with `http` or `https`), it will automatically shorten it and place the short URL back in your clipboard.
 
-## How it works
+## Run on Startup
+1. On Mac, go to Login Items and Extensions in Settings > General.
+2. Then, click the "+" button and add the `url_shortener.sh` script.
 
-1. The script uses `pbpaste` to read the clipboard contents.
-2. It validates if the content is a URL and checks if it's already a shortened URL.
-3. It sends a request to your Kutt API using `curl`.
-4. It parses the response using `jq`.
-5. Upon success, it uses `pbcopy` to place the shortened URL into your clipboard and `osascript` to trigger a macOS notification.
 
 ## License
 

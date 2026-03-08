@@ -1,5 +1,26 @@
 #!/bin/bash
 
+# Logging
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOG_FILE="$SCRIPT_DIR/log.txt"
+
+# Log rotation: If log exceeds 1000 lines, back it up and clear it.
+if [[ -f "$LOG_FILE" ]]; then
+    LINE_COUNT=$(wc -l < "$LOG_FILE")
+    if [[ $LINE_COUNT -gt 1000 ]]; then
+        BACKUP_NUM=1
+        while [[ -f "$SCRIPT_DIR/log$BACKUP_NUM.txt" ]]; do
+            ((BACKUP_NUM++))
+        done
+        mv "$LOG_FILE" "$SCRIPT_DIR/log$BACKUP_NUM.txt"
+        touch "$LOG_FILE"
+    fi
+fi
+
+# Redirect all output to the log file, but keep a file descriptor for original stdout
+exec 3>&1
+exec >> "$LOG_FILE" 2>&1
+
 # Configuration
 CONFIG_DIR="$HOME/.config/kutt_auto_shorten_mac"
 CONFIG_FILE="$CONFIG_DIR/config.json"
@@ -10,7 +31,7 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     mkdir -p "$CONFIG_DIR"
     cp "$EXAMPLE_CONFIG" "$CONFIG_FILE"
     echo "Please update $CONFIG_FILE with your Kutt API details and restart."
-    osascript -e "display notification \"Please update $CONFIG_FILE\" with title \"Kutt Shortener Setup\""
+    osascript -e "display notification \"Please update $CONFIG_FILE\" with title \"Kutt Shortener Setup\"" >&3
     exit 1
 fi
 
@@ -92,7 +113,7 @@ shorten_url() {
         # Success
         echo -n "$SHORT_URL" | pbcopy
         echo "Shortened URL copied to clipboard: $SHORT_URL"
-        osascript -e "display notification \"$SHORT_URL copied to clipboard\" with title \"Kutt Shortener\""
+        osascript -e "display notification \"$SHORT_URL copied to clipboard\" with title \"Kutt Shortener\"" >&3
         return 0
     else
         # API Error
